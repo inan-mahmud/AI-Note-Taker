@@ -99,6 +99,9 @@ struct ContentView: View {
         .onAppear {
             viewModel.onAppear()
         }
+        .fullScreenCover(isPresented: $viewModel.showLoadingView) {
+            LoadingView()
+        }
         .sheet(isPresented: $viewModel.showTranscriptView) {
             TranscriptSummaryView(viewModel: viewModel)
         }

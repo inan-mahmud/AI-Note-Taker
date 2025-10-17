@@ -77,52 +77,9 @@ struct TranscriptSummaryView: View {
                                 Text("Summary")
                                     .font(.system(size: 24, weight: .bold, design: .rounded))
                                     .foregroundColor(.white)
-                                
-                                if viewModel.isGeneratingSummary {
-                                    Spacer()
-                                    HStack(spacing: 8) {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                                            .scaleEffect(0.8)
-                                        Text("AI is generating...")
-                                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                                            .foregroundColor(.blue)
-                                    }
-                                }
                             }
                             
-                            if viewModel.isGeneratingSummary {
-                                // Shimmer loading skeleton
-                                VStack(alignment: .leading, spacing: 8) {
-                                    ForEach(0..<3) { index in
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(
-                                                LinearGradient(
-                                                    gradient: Gradient(colors: [
-                                                        Color.white.opacity(0.1),
-                                                        Color.white.opacity(0.2),
-                                                        Color.white.opacity(0.1)
-                                                    ]),
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
-                                                )
-                                            )
-                                            .frame(height: 16)
-                                            .frame(maxWidth: index == 2 ? .infinity * 0.6 : .infinity)
-                                            .shimmer()
-                                    }
-                                }
-                                .padding()
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.white.opacity(0.05))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                                )
-                            } else if viewModel.transcriptSummary.isEmpty {
+                            if viewModel.transcriptSummary.isEmpty {
                                 Text("No summary available")
                                     .font(.system(size: 16, weight: .regular, design: .rounded))
                                     .foregroundColor(.white.opacity(0.5))
@@ -152,6 +109,57 @@ struct TranscriptSummaryView: View {
                                             .stroke(Color.blue.opacity(0.3), lineWidth: 1)
                                     )
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            }
+                        }
+                        
+                        // Action Points Section
+                        if !viewModel.actionPoints.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.orange)
+                                    Text("Action Points")
+                                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 10) {
+                                    ForEach(Array(viewModel.actionPoints.enumerated()), id: \.offset) { index, actionPoint in
+                                        HStack(alignment: .top, spacing: 12) {
+                                            ZStack {
+                                                Circle()
+                                                    .fill(
+                                                        LinearGradient(
+                                                            gradient: Gradient(colors: [Color.orange.opacity(0.8), Color.red.opacity(0.8)]),
+                                                            startPoint: .topLeading,
+                                                            endPoint: .bottomTrailing
+                                                        )
+                                                    )
+                                                    .frame(width: 24, height: 24)
+                                                
+                                                Text("\(index + 1)")
+                                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                                    .foregroundColor(.white)
+                                            }
+                                            
+                                            Text(actionPoint)
+                                                .font(.system(size: 16, weight: .regular, design: .rounded))
+                                                .foregroundColor(.white)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
+                                        .padding()
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .fill(Color.white.opacity(0.1))
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                                        )
+                                    }
+                                }
+                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
                             }
                         }
                         
@@ -268,8 +276,16 @@ struct TranscriptSummaryView: View {
             textToCopy += "Keywords: \(viewModel.extractedKeywords.joined(separator: ", "))\n\n---\n\n"
         }
         
-        if !viewModel.transcriptSummary.isEmpty && !viewModel.isGeneratingSummary {
+        if !viewModel.transcriptSummary.isEmpty {
             textToCopy += "Summary:\n\n\(viewModel.transcriptSummary)\n\n---\n\n"
+        }
+        
+        if !viewModel.actionPoints.isEmpty {
+            textToCopy += "Action Points:\n\n"
+            for (index, actionPoint) in viewModel.actionPoints.enumerated() {
+                textToCopy += "\(index + 1). \(actionPoint)\n"
+            }
+            textToCopy += "\n---\n\n"
         }
         
         textToCopy += "Full Transcript:\n\n\(viewModel.currentTranscript)"
@@ -290,8 +306,16 @@ struct TranscriptSummaryView: View {
             textToShare += "Keywords: \(viewModel.extractedKeywords.joined(separator: ", "))\n\n---\n\n"
         }
         
-        if !viewModel.transcriptSummary.isEmpty && !viewModel.isGeneratingSummary {
+        if !viewModel.transcriptSummary.isEmpty {
             textToShare += "Summary:\n\n\(viewModel.transcriptSummary)\n\n---\n\n"
+        }
+        
+        if !viewModel.actionPoints.isEmpty {
+            textToShare += "Action Points:\n\n"
+            for (index, actionPoint) in viewModel.actionPoints.enumerated() {
+                textToShare += "\(index + 1). \(actionPoint)\n"
+            }
+            textToShare += "\n---\n\n"
         }
         
         textToShare += "Full Transcript:\n\n\(viewModel.currentTranscript)"
@@ -350,36 +374,6 @@ struct FlowLayout: Layout {
     }
 }
 
-// Shimmer effect for loading animation
-struct ShimmerModifier: ViewModifier {
-    @State private var phase: CGFloat = 0
-    
-    func body(content: Content) -> some View {
-        content
-            .mask(
-                LinearGradient(
-                    gradient: Gradient(stops: [
-                        .init(color: .black.opacity(0.3), location: phase),
-                        .init(color: .black, location: phase + 0.1),
-                        .init(color: .black.opacity(0.3), location: phase + 0.2)
-                    ]),
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .onAppear {
-                withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-                    phase = 1
-                }
-            }
-    }
-}
-
-extension View {
-    func shimmer() -> some View {
-        modifier(ShimmerModifier())
-    }
-}
 
 #Preview {
     let viewModel = ContentViewModel()

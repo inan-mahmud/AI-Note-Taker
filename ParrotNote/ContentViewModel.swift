@@ -19,8 +19,10 @@ class ContentViewModel {
     var instructionText = "Press the microphone to begin recording"
     var currentTranscript = ""
     var transcriptSummary = ""
+    var actionPoints: [String] = []
     var extractedKeywords: [String] = []
     var showTranscriptView = false
+    var showLoadingView = false
     var isGeneratingSummary = false
     
     private var audioEngine: AVAudioEngine?
@@ -103,7 +105,7 @@ class ContentViewModel {
                     let transcription = result.bestTranscription.formattedString
                     self.currentTranscript = transcription
                     self.statusText = "Listening..."
-                    self.instructionText = transcription.isEmpty ? "Speak now" : transcription
+                    self.instructionText = "Speak now"
                 }
             }
         }
@@ -146,11 +148,18 @@ class ContentViewModel {
                         if !finalTranscript.isEmpty {
                             currentTranscript = finalTranscript
                             extractedKeywords = extractKeywords(from: currentTranscript)
-                            showTranscriptView = true
+                            
+                            // Show loading view first
+                            showLoadingView = true
                             
                             // Generate summary using OpenAI
                             Task {
                                 await generateAISummary()
+                                // After summary is generated, dismiss loading and show results
+                                await MainActor.run {
+                                    showLoadingView = false
+                                    showTranscriptView = true
+                                }
                             }
                         } else {
                             instructionText = "No speech detected. Try again."
@@ -166,23 +175,17 @@ class ContentViewModel {
         transcriptSummary = "Generating summary..."
         
         do {
-            let systemMessage = "You are an expert at creating concise summaries. Create a brief 2-3 sentence summary highlighting the main points."
-            
-            let prompt = """
-            Please summarize the following transcript in 2-3 sentences:
-            
-            \(currentTranscript)
-            """
-            
-            let summary = try await OpenAIService.shared.sendPrompt(prompt, systemMessage: systemMessage)
+            let meetingNotes = try await OpenAIService.shared.fetchMeetingNotes(from: currentTranscript)
             
             await MainActor.run {
-                transcriptSummary = summary
+                transcriptSummary = meetingNotes.summary
+                actionPoints = meetingNotes.action_points
                 isGeneratingSummary = false
             }
         } catch {
             await MainActor.run {
                 transcriptSummary = "Failed to generate summary: \(error.localizedDescription)"
+                actionPoints = []
                 isGeneratingSummary = false
             }
         }
